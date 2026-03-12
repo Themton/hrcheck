@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบแจกแจงมาสาย — หักเงิน | กุมภาพันธ์ 2569</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏰</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Sarabun', sans-serif; background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%); min-height: 100vh; }
+  
+  .container { max-width: 1280px; margin: 0 auto; padding: 16px; }
+  
+  /* Header */
+  .header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 50%, #4f46e5 100%); border-radius: 20px; padding: 28px 32px; margin-bottom: 20px; color: white; position: relative; overflow: hidden; }
+  .header::before { content: ''; position: absolute; top: -50%; right: -20%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%); }
+  .header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; position: relative; }
+  .header p { font-size: 13px; opacity: 0.75; margin-top: 6px; position: relative; }
+  .header .rules-box { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; position: relative; }
+  .rule-chip { background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; padding: 8px 14px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .rule-chip .icon { font-size: 16px; }
+  
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 768px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  .stat-card { background: white; border-radius: 16px; padding: 18px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: transform 0.2s, box-shadow 0.2s; }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .stat-card .label { font-size: 11px; color: #6b7280; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+  .stat-card.danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; }
+  .stat-card.danger .label { color: rgba(255,255,255,0.8); }
+  
+  /* Controls */
+  .controls { background: white; border-radius: 16px; padding: 16px; border: 1px solid #e5e7eb; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .search-input { border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 9px 14px; font-size: 14px; flex: 1; min-width: 200px; outline: none; font-family: 'Sarabun', sans-serif; transition: border-color 0.2s; }
+  .search-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+  .select-box { border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 9px 14px; font-size: 14px; background: white; font-family: 'Sarabun', sans-serif; cursor: pointer; }
+  .checkbox-label { font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; }
+  .btn { border: none; border-radius: 10px; padding: 9px 16px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Sarabun', sans-serif; transition: all 0.2s; }
+  .btn-violet { background: #ede9fe; color: #6d28d9; }
+  .btn-violet:hover { background: #ddd6fe; }
+  .btn-blue { background: #dbeafe; color: #1d4ed8; }
+  .btn-blue:hover { background: #bfdbfe; }
+  .btn-green { background: #d1fae5; color: #065f46; }
+  .btn-green:hover { background: #a7f3d0; }
+  .btn-import { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; display: flex; align-items: center; gap: 6px; }
+  .btn-import:hover { background: linear-gradient(135deg, #d97706, #b45309); }
+  .btn-export { background: linear-gradient(135deg, #10b981, #059669); color: white; display: flex; align-items: center; gap: 6px; }
+  .btn-export:hover { background: linear-gradient(135deg, #059669, #047857); }
+  .btn-export-detail { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; display: flex; align-items: center; gap: 6px; }
+  .btn-export-detail:hover { background: linear-gradient(135deg, #4f46e5, #4338ca); }
+  
+  /* Table */
+  .table-wrap { background: white; border-radius: 16px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th { padding: 12px 10px; text-align: left; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; background: linear-gradient(to bottom, #f9fafb, #f3f4f6); border-bottom: 2px solid #e5e7eb; position: sticky; top: 0; }
+  tbody td { padding: 10px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  tbody tr { transition: background 0.15s; }
+  tbody tr:hover { background: #eff6ff; }
+  tbody tr.has-deduction { background: #fffbeb; }
+  tbody tr.has-deduction:hover { background: #fef3c7; }
+  tfoot td { padding: 14px 10px; font-weight: 700; background: linear-gradient(to bottom, #f1f5f9, #e2e8f0); border-top: 2px solid #cbd5e1; }
+  
+  /* Badges */
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; }
+  .badge-ok { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+  .badge-late { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+  .badge-halfday { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+  .badge-none { background: #f9fafb; color: #9ca3af; border-color: #e5e7eb; }
+  .badge-daily { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; cursor: pointer; }
+  .badge-permanent { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; cursor: pointer; }
+  .badge-daily:hover, .badge-permanent:hover { transform: scale(1.05); }
+  
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+  .text-red { color: #dc2626; }
+  .text-amber { color: #d97706; }
+  .text-emerald { color: #059669; }
+  .text-gray { color: #d1d5db; }
+  .font-bold { font-weight: 700; }
+  .font-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; }
+  
+  .view-btn { background: none; border: none; color: #3b82f6; cursor: pointer; padding: 6px; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+  .view-btn:hover { background: #dbeafe; color: #1d4ed8; }
+  
+  /* Detail view */
+  .detail-header { background: linear-gradient(135deg, #1e40af, #4f46e5); border-radius: 20px; padding: 24px 28px; color: white; margin-bottom: 16px; }
+  .detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+  @media (max-width: 640px) { .detail-stats { grid-template-columns: repeat(2, 1fr); } }
+  .detail-stat { background: rgba(255,255,255,0.13); border-radius: 12px; padding: 12px; text-align: center; }
+  .detail-stat .val { font-size: 24px; font-weight: 700; }
+  .detail-stat .lbl { font-size: 11px; opacity: 0.75; }
+  
+  .back-btn { display: inline-flex; align-items: center; gap: 6px; color: #3b82f6; font-weight: 600; cursor: pointer; background: none; border: none; font-family: 'Sarabun', sans-serif; font-size: 14px; padding: 8px 0; margin-bottom: 12px; }
+  .back-btn:hover { color: #1d4ed8; }
+  
+  .detail-row-late { background: #fffbeb; }
+  .detail-row-halfday { background: #fef2f2; }
+  
+  /* Upload area */
+  .upload-area { border: 2px dashed #cbd5e1; border-radius: 16px; padding: 40px; text-align: center; margin: 20px 0; cursor: pointer; transition: all 0.3s; background: #fafbfc; }
+  .upload-area:hover { border-color: #3b82f6; background: #eff6ff; }
+  .upload-area.dragging { border-color: #3b82f6; background: #dbeafe; }
+  .upload-icon { font-size: 48px; margin-bottom: 12px; }
+  
+  .footer { text-align: center; padding: 16px; font-size: 11px; color: #9ca3af; }
+  
+  .hidden-input { display: none; }
+  
+  .tab-bar { display: flex; gap: 4px; background: #f1f5f9; border-radius: 12px; padding: 4px; margin-bottom: 16px; width: fit-content; }
+  .tab { padding: 8px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; background: none; font-family: 'Sarabun', sans-serif; color: #64748b; transition: all 0.2s; }
+  .tab.active { background: white; color: #1e40af; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useMemo, useCallback, useRef } = React;
+
+const RATE = 50;
+
+const EMBEDDED_DATA = [{"code":"T000","name":"ศิวกร สุขสวัสดิ์","days":{"1":null,"2":null,"3":null,"4":null,"5":null,"6":null,"7":null,"8":null,"9":null,"10":null,"11":null,"12":null,"13":null,"14":null,"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}},{"code":"T002","name":"สุทธิพงษ์ ปลัดยศ ฟลุ๊ค","days":{"1":null,"2":{"clockIn":"08:56","lateMin":0,"halfDay":false},"3":{"clockIn":"08:54","lateMin":0,"halfDay":false},"4":{"clockIn":"08:51","lateMin":0,"halfDay":false},"5":{"clockIn":"08:48","lateMin":0,"halfDay":false},"6":{"clockIn":"08:52","lateMin":0,"halfDay":false},"7":{"clockIn":"08:57","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:56","lateMin":0,"halfDay":false},"10":{"clockIn":"08:45","lateMin":0,"halfDay":false},"11":{"clockIn":"08:53","lateMin":0,"halfDay":false},"12":{"clockIn":"08:49","lateMin":0,"halfDay":false},"13":{"clockIn":"08:57","lateMin":0,"halfDay":false},"14":{"clockIn":"09:05","lateMin":5,"halfDay":false},"15":null,"16":{"clockIn":"08:46","lateMin":0,"halfDay":false},"17":{"clockIn":"08:52","lateMin":0,"halfDay":false},"18":{"clockIn":"08:38","lateMin":0,"halfDay":false},"19":{"clockIn":"08:56","lateMin":0,"halfDay":false},"20":{"clockIn":"08:56","lateMin":0,"halfDay":false},"21":{"clockIn":"08:58","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:52","lateMin":0,"halfDay":false},"24":{"clockIn":"08:50","lateMin":0,"halfDay":false},"25":{"clockIn":"08:55","lateMin":0,"halfDay":false},"26":{"clockIn":"08:48","lateMin":0,"halfDay":false},"27":{"clockIn":"08:54","lateMin":0,"halfDay":false},"28":{"clockIn":"08:53","lateMin":0,"halfDay":false}}},{"code":"T003","name":"สุจารินทร์ จันทร์ทิพย์ เจ","days":{"1":null,"2":{"clockIn":"08:49","lateMin":0,"halfDay":false},"3":{"clockIn":"08:45","lateMin":0,"halfDay":false},"4":{"clockIn":"08:43","lateMin":0,"halfDay":false},"5":{"clockIn":"08:41","lateMin":0,"halfDay":false},"6":{"clockIn":"08:46","lateMin":0,"halfDay":false},"7":{"clockIn":"08:46","lateMin":0,"halfDay":false},"8":null,"9":null,"10":null,"11":{"clockIn":"08:37","lateMin":0,"halfDay":false},"12":{"clockIn":"08:46","lateMin":0,"halfDay":false},"13":{"clockIn":"08:50","lateMin":0,"halfDay":false},"14":{"clockIn":"08:49","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:32","lateMin":0,"halfDay":false},"17":{"clockIn":"08:23","lateMin":0,"halfDay":false},"18":null,"19":null,"20":{"clockIn":"08:45","lateMin":0,"halfDay":false},"21":{"clockIn":"08:48","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:31","lateMin":0,"halfDay":false},"24":{"clockIn":"08:42","lateMin":0,"halfDay":false},"25":{"clockIn":"08:41","lateMin":0,"halfDay":false},"26":{"clockIn":"08:43","lateMin":0,"halfDay":false},"27":{"clockIn":"08:52","lateMin":0,"halfDay":false},"28":null}},{"code":"T004","name":"วรยา จันทร์พลงาม โอ๋","days":{"1":null,"2":{"clockIn":"08:42","lateMin":0,"halfDay":false},"3":{"clockIn":"08:51","lateMin":0,"halfDay":false},"4":{"clockIn":"08:46","lateMin":0,"halfDay":false},"5":{"clockIn":"08:49","lateMin":0,"halfDay":false},"6":{"clockIn":"08:52","lateMin":0,"halfDay":false},"7":{"clockIn":"08:46","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:53","lateMin":0,"halfDay":false},"10":{"clockIn":"08:45","lateMin":0,"halfDay":false},"11":{"clockIn":"08:49","lateMin":0,"halfDay":false},"12":{"clockIn":"08:35","lateMin":0,"halfDay":false},"13":{"clockIn":"08:49","lateMin":0,"halfDay":false},"14":{"clockIn":"08:50","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:54","lateMin":0,"halfDay":false},"17":{"clockIn":"08:49","lateMin":0,"halfDay":false},"18":{"clockIn":"08:55","lateMin":0,"halfDay":false},"19":{"clockIn":"08:58","lateMin":0,"halfDay":false},"20":{"clockIn":"08:54","lateMin":0,"halfDay":false},"21":{"clockIn":"08:53","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:55","lateMin":0,"halfDay":false},"24":{"clockIn":"09:03","lateMin":3,"halfDay":false},"25":{"clockIn":"08:39","lateMin":0,"halfDay":false},"26":{"clockIn":"08:52","lateMin":0,"halfDay":false},"27":{"clockIn":"08:51","lateMin":0,"halfDay":false},"28":{"clockIn":"08:35","lateMin":0,"halfDay":false}}},{"code":"T005","name":"กนกเกศ สุวรรณโคตร จา","days":{"1":null,"2":{"clockIn":"08:46","lateMin":0,"halfDay":false},"3":{"clockIn":"08:19","lateMin":0,"halfDay":false},"4":{"clockIn":"08:16","lateMin":0,"halfDay":false},"5":{"clockIn":"08:16","lateMin":0,"halfDay":false},"6":{"clockIn":"08:07","lateMin":0,"halfDay":false},"7":{"clockIn":"08:13","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:22","lateMin":0,"halfDay":false},"10":{"clockIn":"08:09","lateMin":0,"halfDay":false},"11":{"clockIn":"08:06","lateMin":0,"halfDay":false},"12":{"clockIn":"08:04","lateMin":0,"halfDay":false},"13":{"clockIn":"07:58","lateMin":0,"halfDay":false},"14":null,"15":null,"16":{"clockIn":"07:49","lateMin":0,"halfDay":false},"17":{"clockIn":"08:40","lateMin":0,"halfDay":false},"18":{"clockIn":"08:24","lateMin":0,"halfDay":false},"19":{"clockIn":"07:56","lateMin":0,"halfDay":false},"20":{"clockIn":"08:26","lateMin":0,"halfDay":false},"21":{"clockIn":"07:40","lateMin":0,"halfDay":false},"22":null,"23":null,"24":{"clockIn":"08:16","lateMin":0,"halfDay":false},"25":{"clockIn":"07:57","lateMin":0,"halfDay":false},"26":{"clockIn":"07:48","lateMin":0,"halfDay":false},"27":{"clockIn":"08:12","lateMin":0,"halfDay":false},"28":{"clockIn":"07:51","lateMin":0,"halfDay":false}}},{"code":"T006","name":"อรยา น่วยนุ่ม อุ้ยอ้าย","days":{"1":null,"2":{"clockIn":"08:26","lateMin":0,"halfDay":false},"3":{"clockIn":"08:17","lateMin":0,"halfDay":false},"4":{"clockIn":"08:32","lateMin":0,"halfDay":false},"5":{"clockIn":"08:27","lateMin":0,"halfDay":false},"6":{"clockIn":"08:32","lateMin":0,"halfDay":false},"7":{"clockIn":"08:50","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:29","lateMin":0,"halfDay":false},"10":{"clockIn":"08:32","lateMin":0,"halfDay":false},"11":{"clockIn":"08:37","lateMin":0,"halfDay":false},"12":{"clockIn":"08:36","lateMin":0,"halfDay":false},"13":{"clockIn":"08:30","lateMin":0,"halfDay":false},"14":{"clockIn":"08:37","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:34","lateMin":0,"halfDay":false},"17":{"clockIn":"08:38","lateMin":0,"halfDay":false},"18":{"clockIn":"08:36","lateMin":0,"halfDay":false},"19":{"clockIn":"08:39","lateMin":0,"halfDay":false},"20":{"clockIn":"08:34","lateMin":0,"halfDay":false},"21":{"clockIn":"08:43","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:43","lateMin":0,"halfDay":false},"24":{"clockIn":"08:46","lateMin":0,"halfDay":false},"25":{"clockIn":"08:37","lateMin":0,"halfDay":false},"26":{"clockIn":"08:46","lateMin":0,"halfDay":false},"27":{"clockIn":"08:23","lateMin":0,"halfDay":false},"28":{"clockIn":"08:11","lateMin":0,"halfDay":false}}},{"code":"T007","name":"อรอนงค์ เรืองมณี อร","days":{"1":null,"2":{"clockIn":"08:42","lateMin":0,"halfDay":false},"3":{"clockIn":"08:32","lateMin":0,"halfDay":false},"4":{"clockIn":"08:46","lateMin":0,"halfDay":false},"5":{"clockIn":"08:38","lateMin":0,"halfDay":false},"6":{"clockIn":"08:31","lateMin":0,"halfDay":false},"7":{"clockIn":"08:41","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:34","lateMin":0,"halfDay":false},"10":{"clockIn":"08:31","lateMin":0,"halfDay":false},"11":{"clockIn":"08:44","lateMin":0,"halfDay":false},"12":{"clockIn":"08:35","lateMin":0,"halfDay":false},"13":{"clockIn":"08:46","lateMin":0,"halfDay":false},"14":{"clockIn":"08:32","lateMin":0,"halfDay":false},"15":null,"16":null,"17":null,"18":{"clockIn":"08:27","lateMin":0,"halfDay":false},"19":{"clockIn":"08:59","lateMin":0,"halfDay":false},"20":{"clockIn":"08:28","lateMin":0,"halfDay":false},"21":{"clockIn":"08:38","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:39","lateMin":0,"halfDay":false},"24":{"clockIn":"08:30","lateMin":0,"halfDay":false},"25":{"clockIn":"08:39","lateMin":0,"halfDay":false},"26":{"clockIn":"08:17","lateMin":0,"halfDay":false},"27":{"clockIn":"08:21","lateMin":0,"halfDay":false},"28":{"clockIn":"08:35","lateMin":0,"halfDay":false}}},{"code":"T008","name":"สุจิตรา โชติรัตน์ ตูน","days":{"1":null,"2":{"clockIn":"08:47","lateMin":0,"halfDay":false},"3":{"clockIn":"08:48","lateMin":0,"halfDay":false},"4":{"clockIn":"09:04","lateMin":4,"halfDay":false},"5":{"clockIn":"08:49","lateMin":0,"halfDay":false},"6":{"clockIn":"08:52","lateMin":0,"halfDay":false},"7":null,"8":null,"9":{"clockIn":"08:52","lateMin":0,"halfDay":false},"10":{"clockIn":"08:50","lateMin":0,"halfDay":false},"11":{"clockIn":"08:53","lateMin":0,"halfDay":false},"12":{"clockIn":"08:52","lateMin":0,"halfDay":false},"13":{"clockIn":"08:52","lateMin":0,"halfDay":false},"14":{"clockIn":"08:48","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:53","lateMin":0,"halfDay":false},"17":{"clockIn":"08:43","lateMin":0,"halfDay":false},"18":{"clockIn":"08:23","lateMin":0,"halfDay":false},"19":{"clockIn":"08:47","lateMin":0,"halfDay":false},"20":{"clockIn":"08:42","lateMin":0,"halfDay":false},"21":null,"22":null,"23":{"clockIn":"08:51","lateMin":0,"halfDay":false},"24":{"clockIn":"08:35","lateMin":0,"halfDay":false},"25":{"clockIn":"08:49","lateMin":0,"halfDay":false},"26":{"clockIn":"08:47","lateMin":0,"halfDay":false},"27":{"clockIn":"08:47","lateMin":0,"halfDay":false},"28":{"clockIn":"08:48","lateMin":0,"halfDay":false}}},{"code":"T009","name":"อัณชฎาพร กุดทิง มิ้น","days":{"1":null,"2":{"clockIn":"08:47","lateMin":0,"halfDay":false},"3":{"clockIn":"09:03","lateMin":3,"halfDay":false},"4":{"clockIn":"09:01","lateMin":1,"halfDay":false},"5":{"clockIn":"08:59","lateMin":0,"halfDay":false},"6":null,"7":{"clockIn":"08:58","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:49","lateMin":0,"halfDay":false},"10":{"clockIn":"08:49","lateMin":0,"halfDay":false},"11":{"clockIn":"08:54","lateMin":0,"halfDay":false},"12":{"clockIn":"09:02","lateMin":2,"halfDay":false},"13":{"clockIn":"08:51","lateMin":0,"halfDay":false},"14":null,"15":null,"16":{"clockIn":"08:59","lateMin":0,"halfDay":false},"17":{"clockIn":"08:51","lateMin":0,"halfDay":false},"18":{"clockIn":"08:59","lateMin":0,"halfDay":false},"19":{"clockIn":"08:50","lateMin":0,"halfDay":false},"20":{"clockIn":"08:56","lateMin":0,"halfDay":false},"21":{"clockIn":"08:47","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:52","lateMin":0,"halfDay":false},"24":{"clockIn":"08:56","lateMin":0,"halfDay":false},"25":{"clockIn":"09:04","lateMin":4,"halfDay":false},"26":{"clockIn":"08:59","lateMin":0,"halfDay":false},"27":{"clockIn":"08:58","lateMin":0,"halfDay":false},"28":{"clockIn":"08:59","lateMin":0,"halfDay":false}}},{"code":"T010","name":"มนัญญา คำไล้ ออย","days":{"1":null,"2":{"clockIn":"08:53","lateMin":0,"halfDay":false},"3":{"clockIn":"08:55","lateMin":0,"halfDay":false},"4":{"clockIn":"08:55","lateMin":0,"halfDay":false},"5":{"clockIn":"08:57","lateMin":0,"halfDay":false},"6":{"clockIn":"08:47","lateMin":0,"halfDay":false},"7":{"clockIn":"08:53","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:54","lateMin":0,"halfDay":false},"10":{"clockIn":"08:54","lateMin":0,"halfDay":false},"11":{"clockIn":"08:55","lateMin":0,"halfDay":false},"12":{"clockIn":"08:52","lateMin":0,"halfDay":false},"13":{"clockIn":"08:56","lateMin":0,"halfDay":false},"14":null,"15":null,"16":{"clockIn":"08:52","lateMin":0,"halfDay":false},"17":{"clockIn":"08:52","lateMin":0,"halfDay":false},"18":{"clockIn":"08:50","lateMin":0,"halfDay":false},"19":{"clockIn":"08:53","lateMin":0,"halfDay":false},"20":{"clockIn":"08:52","lateMin":0,"halfDay":false},"21":{"clockIn":"08:50","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:56","lateMin":0,"halfDay":false},"24":{"clockIn":"08:53","lateMin":0,"halfDay":false},"25":{"clockIn":"08:55","lateMin":0,"halfDay":false},"26":{"clockIn":"08:55","lateMin":0,"halfDay":false},"27":{"clockIn":"08:52","lateMin":0,"halfDay":false},"28":{"clockIn":"08:55","lateMin":0,"halfDay":false}}},{"code":"T011","name":"ยุพา เงินสะอาด กบ","days":{"1":null,"2":{"clockIn":"07:19","lateMin":0,"halfDay":false},"3":{"clockIn":"07:14","lateMin":0,"halfDay":false},"4":{"clockIn":"07:25","lateMin":0,"halfDay":false},"5":{"clockIn":"07:18","lateMin":0,"halfDay":false},"6":{"clockIn":"07:18","lateMin":0,"halfDay":false},"7":{"clockIn":"07:27","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"07:06","lateMin":0,"halfDay":false},"10":{"clockIn":"07:08","lateMin":0,"halfDay":false},"11":{"clockIn":"07:11","lateMin":0,"halfDay":false},"12":{"clockIn":"07:08","lateMin":0,"halfDay":false},"13":{"clockIn":"07:25","lateMin":0,"halfDay":false},"14":{"clockIn":"07:23","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"07:11","lateMin":0,"halfDay":false},"17":{"clockIn":"07:16","lateMin":0,"halfDay":false},"18":{"clockIn":"07:11","lateMin":0,"halfDay":false},"19":{"clockIn":"07:00","lateMin":0,"halfDay":false},"20":{"clockIn":"07:38","lateMin":0,"halfDay":false},"21":{"clockIn":"07:30","lateMin":0,"halfDay":false},"22":null,"23":null,"24":{"clockIn":"07:15","lateMin":0,"halfDay":false},"25":{"clockIn":"07:06","lateMin":0,"halfDay":false},"26":{"clockIn":"07:07","lateMin":0,"halfDay":false},"27":{"clockIn":"07:05","lateMin":0,"halfDay":false},"28":{"clockIn":"07:09","lateMin":0,"halfDay":false}}},{"code":"T012","name":"ภัชราภรณ์ มณีวงษ์ เอิร์น","days":{"1":null,"2":{"clockIn":"08:55","lateMin":0,"halfDay":false},"3":{"clockIn":"09:01","lateMin":1,"halfDay":false},"4":{"clockIn":"08:50","lateMin":0,"halfDay":false},"5":{"clockIn":"08:55","lateMin":0,"halfDay":false},"6":{"clockIn":"08:57","lateMin":0,"halfDay":false},"7":{"clockIn":"08:59","lateMin":0,"halfDay":false},"8":null,"9":null,"10":{"clockIn":"09:00","lateMin":0,"halfDay":false},"11":{"clockIn":"08:50","lateMin":0,"halfDay":false},"12":{"clockIn":"08:59","lateMin":0,"halfDay":false},"13":{"clockIn":"08:52","lateMin":0,"halfDay":false},"14":{"clockIn":"08:57","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:53","lateMin":0,"halfDay":false},"17":{"clockIn":"08:58","lateMin":0,"halfDay":false},"18":null,"19":{"clockIn":"08:50","lateMin":0,"halfDay":false},"20":{"clockIn":"08:47","lateMin":0,"halfDay":false},"21":{"clockIn":"08:59","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:58","lateMin":0,"halfDay":false},"24":{"clockIn":"08:54","lateMin":0,"halfDay":false},"25":{"clockIn":"08:53","lateMin":0,"halfDay":false},"26":{"clockIn":"08:55","lateMin":0,"halfDay":false},"27":{"clockIn":"08:55","lateMin":0,"halfDay":false},"28":{"clockIn":"08:55","lateMin":0,"halfDay":false}}},{"code":"T013","name":"มลฤดี ทองถัน หมิว","days":{"1":null,"2":null,"3":null,"4":null,"5":null,"6":null,"7":null,"8":null,"9":null,"10":null,"11":null,"12":null,"13":null,"14":null,"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}},{"code":"T014","name":"ศิริวรรณ ภูมิประยงศ์ นุ่น","days":{"1":null,"2":{"clockIn":"08:26","lateMin":0,"halfDay":false},"3":{"clockIn":"07:14","lateMin":0,"halfDay":false},"4":{"clockIn":"07:33","lateMin":0,"halfDay":false},"5":{"clockIn":"07:38","lateMin":0,"halfDay":false},"6":{"clockIn":"07:40","lateMin":0,"halfDay":false},"7":{"clockIn":"07:23","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:21","lateMin":0,"halfDay":false},"10":null,"11":{"clockIn":"07:37","lateMin":0,"halfDay":false},"12":{"clockIn":"07:33","lateMin":0,"halfDay":false},"13":{"clockIn":"07:40","lateMin":0,"halfDay":false},"14":{"clockIn":"07:33","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"07:02","lateMin":0,"halfDay":false},"17":{"clockIn":"08:03","lateMin":0,"halfDay":false},"18":{"clockIn":"07:34","lateMin":0,"halfDay":false},"19":{"clockIn":"07:36","lateMin":0,"halfDay":false},"20":{"clockIn":"07:39","lateMin":0,"halfDay":false},"21":{"clockIn":"07:33","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:15","lateMin":0,"halfDay":false},"24":{"clockIn":"07:38","lateMin":0,"halfDay":false},"25":{"clockIn":"07:35","lateMin":0,"halfDay":false},"26":{"clockIn":"07:35","lateMin":0,"halfDay":false},"27":{"clockIn":"07:38","lateMin":0,"halfDay":false},"28":{"clockIn":"07:31","lateMin":0,"halfDay":false}}},{"code":"T015","name":"ธนากานต์ แสงรัตน์ ปอนด์","days":{"1":null,"2":{"clockIn":"08:46","lateMin":0,"halfDay":false},"3":{"clockIn":"08:51","lateMin":0,"halfDay":false},"4":{"clockIn":"08:48","lateMin":0,"halfDay":false},"5":{"clockIn":"08:56","lateMin":0,"halfDay":false},"6":{"clockIn":"08:51","lateMin":0,"halfDay":false},"7":{"clockIn":"08:57","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:44","lateMin":0,"halfDay":false},"10":{"clockIn":"08:46","lateMin":0,"halfDay":false},"11":{"clockIn":"08:51","lateMin":0,"halfDay":false},"12":{"clockIn":"08:37","lateMin":0,"halfDay":false},"13":{"clockIn":"08:38","lateMin":0,"halfDay":false},"14":{"clockIn":"08:49","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:49","lateMin":0,"halfDay":false},"17":{"clockIn":"08:42","lateMin":0,"halfDay":false},"18":{"clockIn":"08:44","lateMin":0,"halfDay":false},"19":{"clockIn":"08:45","lateMin":0,"halfDay":false},"20":{"clockIn":"08:45","lateMin":0,"halfDay":false},"21":{"clockIn":"08:47","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:52","lateMin":0,"halfDay":false},"24":{"clockIn":"08:47","lateMin":0,"halfDay":false},"25":{"clockIn":"08:47","lateMin":0,"halfDay":false},"26":{"clockIn":"08:41","lateMin":0,"halfDay":false},"27":{"clockIn":"08:49","lateMin":0,"halfDay":false},"28":{"clockIn":"08:45","lateMin":0,"halfDay":false}}},{"code":"T016","name":"สรินทิพย์ พูลทรัพย์ สวย","days":{"1":null,"2":{"clockIn":"08:51","lateMin":0,"halfDay":false},"3":{"clockIn":"08:49","lateMin":0,"halfDay":false},"4":{"clockIn":"08:47","lateMin":0,"halfDay":false},"5":{"clockIn":"08:48","lateMin":0,"halfDay":false},"6":{"clockIn":"08:46","lateMin":0,"halfDay":false},"7":{"clockIn":"08:48","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:49","lateMin":0,"halfDay":false},"10":{"clockIn":"08:46","lateMin":0,"halfDay":false},"11":{"clockIn":"08:44","lateMin":0,"halfDay":false},"12":{"clockIn":"08:49","lateMin":0,"halfDay":false},"13":{"clockIn":"08:47","lateMin":0,"halfDay":false},"14":{"clockIn":"08:51","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:52","lateMin":0,"halfDay":false},"17":{"clockIn":"08:51","lateMin":0,"halfDay":false},"18":{"clockIn":"08:50","lateMin":0,"halfDay":false},"19":{"clockIn":"08:46","lateMin":0,"halfDay":false},"20":{"clockIn":"08:50","lateMin":0,"halfDay":false},"21":{"clockIn":"08:49","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:50","lateMin":0,"halfDay":false},"24":{"clockIn":"08:49","lateMin":0,"halfDay":false},"25":{"clockIn":"08:32","lateMin":0,"halfDay":false},"26":{"clockIn":"08:50","lateMin":0,"halfDay":false},"27":{"clockIn":"08:50","lateMin":0,"halfDay":false},"28":{"clockIn":"08:55","lateMin":0,"halfDay":false}}},{"code":"T017","name":"ณิชาภัทร เมธาสุวรรณ์ ดรีม","days":{"1":null,"2":{"clockIn":"08:46","lateMin":0,"halfDay":false},"3":{"clockIn":"08:51","lateMin":0,"halfDay":false},"4":{"clockIn":"08:48","lateMin":0,"halfDay":false},"5":{"clockIn":"08:52","lateMin":0,"halfDay":false},"6":{"clockIn":"08:47","lateMin":0,"halfDay":false},"7":{"clockIn":"08:43","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:47","lateMin":0,"halfDay":false},"10":{"clockIn":"08:37","lateMin":0,"halfDay":false},"11":{"clockIn":"08:45","lateMin":0,"halfDay":false},"12":{"clockIn":"08:46","lateMin":0,"halfDay":false},"13":{"clockIn":"08:49","lateMin":0,"halfDay":false},"14":{"clockIn":"08:49","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:47","lateMin":0,"halfDay":false},"17":{"clockIn":"08:47","lateMin":0,"halfDay":false},"18":{"clockIn":"08:37","lateMin":0,"halfDay":false},"19":{"clockIn":"08:51","lateMin":0,"halfDay":false},"20":{"clockIn":"08:47","lateMin":0,"halfDay":false},"21":{"clockIn":"08:50","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:52","lateMin":0,"halfDay":false},"24":{"clockIn":"08:46","lateMin":0,"halfDay":false},"25":{"clockIn":"08:48","lateMin":0,"halfDay":false},"26":{"clockIn":"08:57","lateMin":0,"halfDay":false},"27":{"clockIn":"08:50","lateMin":0,"halfDay":false},"28":{"clockIn":"08:52","lateMin":0,"halfDay":false}}},{"code":"T018","name":"ขนิษฐ์ โตเกษม จิ๊บ","days":{"1":null,"2":{"clockIn":"08:38","lateMin":0,"halfDay":false},"3":{"clockIn":"08:18","lateMin":0,"halfDay":false},"4":{"clockIn":"08:34","lateMin":0,"halfDay":false},"5":{"clockIn":"08:43","lateMin":0,"halfDay":false},"6":{"clockIn":"08:24","lateMin":0,"halfDay":false},"7":{"clockIn":"08:28","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:36","lateMin":0,"halfDay":false},"10":{"clockIn":"08:31","lateMin":0,"halfDay":false},"11":{"clockIn":"08:31","lateMin":0,"halfDay":false},"12":{"clockIn":"08:34","lateMin":0,"halfDay":false},"13":{"clockIn":"08:38","lateMin":0,"halfDay":false},"14":{"clockIn":"08:18","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:26","lateMin":0,"halfDay":false},"17":{"clockIn":"08:14","lateMin":0,"halfDay":false},"18":{"clockIn":"08:45","lateMin":0,"halfDay":false},"19":{"clockIn":"08:29","lateMin":0,"halfDay":false},"20":{"clockIn":"08:30","lateMin":0,"halfDay":false},"21":{"clockIn":"08:27","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:16","lateMin":0,"halfDay":false},"24":{"clockIn":"08:44","lateMin":0,"halfDay":false},"25":{"clockIn":"08:37","lateMin":0,"halfDay":false},"26":{"clockIn":"08:23","lateMin":0,"halfDay":false},"27":{"clockIn":"08:35","lateMin":0,"halfDay":false},"28":{"clockIn":"08:25","lateMin":0,"halfDay":false}}},{"code":"T019","name":"ปวีณา คำมีมา หมวย","days":{"1":null,"2":{"clockIn":"08:48","lateMin":0,"halfDay":false},"3":{"clockIn":"08:48","lateMin":0,"halfDay":false},"4":{"clockIn":"08:51","lateMin":0,"halfDay":false},"5":{"clockIn":"08:52","lateMin":0,"halfDay":false},"6":{"clockIn":"08:51","lateMin":0,"halfDay":false},"7":{"clockIn":"08:53","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:49","lateMin":0,"halfDay":false},"10":{"clockIn":"08:54","lateMin":0,"halfDay":false},"11":{"clockIn":"08:55","lateMin":0,"halfDay":false},"12":{"clockIn":"08:54","lateMin":0,"halfDay":false},"13":{"clockIn":"08:51","lateMin":0,"halfDay":false},"14":null,"15":null,"16":{"clockIn":"08:53","lateMin":0,"halfDay":false},"17":{"clockIn":"08:54","lateMin":0,"halfDay":false},"18":{"clockIn":"08:51","lateMin":0,"halfDay":false},"19":{"clockIn":"08:59","lateMin":0,"halfDay":false},"20":{"clockIn":"08:50","lateMin":0,"halfDay":false},"21":{"clockIn":"08:59","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:51","lateMin":0,"halfDay":false},"24":{"clockIn":"08:54","lateMin":0,"halfDay":false},"25":{"clockIn":"08:58","lateMin":0,"halfDay":false},"26":{"clockIn":"08:46","lateMin":0,"halfDay":false},"27":{"clockIn":"08:54","lateMin":0,"halfDay":false},"28":{"clockIn":"08:51","lateMin":0,"halfDay":false}}},{"code":"T020","name":"วิไลวรรณ บัวอุไร ปู","days":{"1":null,"2":{"clockIn":"08:40","lateMin":0,"halfDay":false},"3":{"clockIn":"08:49","lateMin":0,"halfDay":false},"4":{"clockIn":"08:50","lateMin":0,"halfDay":false},"5":{"clockIn":"08:44","lateMin":0,"halfDay":false},"6":{"clockIn":"08:50","lateMin":0,"halfDay":false},"7":{"clockIn":"08:51","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:48","lateMin":0,"halfDay":false},"10":{"clockIn":"08:42","lateMin":0,"halfDay":false},"11":{"clockIn":"08:51","lateMin":0,"halfDay":false},"12":{"clockIn":"08:49","lateMin":0,"halfDay":false},"13":{"clockIn":"08:52","lateMin":0,"halfDay":false},"14":{"clockIn":"08:46","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:52","lateMin":0,"halfDay":false},"17":{"clockIn":"08:43","lateMin":0,"halfDay":false},"18":{"clockIn":"08:48","lateMin":0,"halfDay":false},"19":{"clockIn":"08:47","lateMin":0,"halfDay":false},"20":{"clockIn":"08:44","lateMin":0,"halfDay":false},"21":{"clockIn":"08:47","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:51","lateMin":0,"halfDay":false},"24":{"clockIn":"08:49","lateMin":0,"halfDay":false},"25":{"clockIn":"08:45","lateMin":0,"halfDay":false},"26":{"clockIn":"08:52","lateMin":0,"halfDay":false},"27":{"clockIn":"08:50","lateMin":0,"halfDay":false},"28":{"clockIn":"08:49","lateMin":0,"halfDay":false}}},{"code":"T021","name":"ภัทธิรา กุจั่น อ๋อมแอ๋ม","days":{"1":null,"2":{"clockIn":"08:51","lateMin":0,"halfDay":false},"3":{"clockIn":"08:51","lateMin":0,"halfDay":false},"4":{"clockIn":"09:02","lateMin":2,"halfDay":false},"5":{"clockIn":"08:58","lateMin":0,"halfDay":false},"6":{"clockIn":"08:58","lateMin":0,"halfDay":false},"7":{"clockIn":"08:56","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:59","lateMin":0,"halfDay":false},"10":{"clockIn":"08:59","lateMin":0,"halfDay":false},"11":{"clockIn":"09:01","lateMin":1,"halfDay":false},"12":{"clockIn":"08:59","lateMin":0,"halfDay":false},"13":{"clockIn":"08:59","lateMin":0,"halfDay":false},"14":{"clockIn":"09:00","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"09:00","lateMin":0,"halfDay":false},"17":{"clockIn":"08:59","lateMin":0,"halfDay":false},"18":{"clockIn":"08:58","lateMin":0,"halfDay":false},"19":{"clockIn":"08:55","lateMin":0,"halfDay":false},"20":null,"21":null,"22":null,"23":{"clockIn":"08:55","lateMin":0,"halfDay":false},"24":{"clockIn":"08:55","lateMin":0,"halfDay":false},"25":{"clockIn":"08:53","lateMin":0,"halfDay":false},"26":null,"27":{"clockIn":"09:01","lateMin":1,"halfDay":false},"28":{"clockIn":"08:59","lateMin":0,"halfDay":false}}},{"code":"T022","name":"วิเชียร วัฒนวิจารณ์ เดียร์","days":{"1":null,"2":null,"3":null,"4":null,"5":null,"6":null,"7":null,"8":null,"9":null,"10":null,"11":null,"12":null,"13":null,"14":null,"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}},{"code":"T023","name":"อัจฉรา ดอนเล้าไพร ตาล","days":{"1":null,"2":{"clockIn":"08:38","lateMin":0,"halfDay":false},"3":{"clockIn":"08:51","lateMin":0,"halfDay":false},"4":{"clockIn":"08:36","lateMin":0,"halfDay":false},"5":{"clockIn":"08:38","lateMin":0,"halfDay":false},"6":{"clockIn":"08:51","lateMin":0,"halfDay":false},"7":{"clockIn":"08:24","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:47","lateMin":0,"halfDay":false},"10":{"clockIn":"08:27","lateMin":0,"halfDay":false},"11":null,"12":{"clockIn":"08:35","lateMin":0,"halfDay":false},"13":{"clockIn":"08:38","lateMin":0,"halfDay":false},"14":{"clockIn":"08:38","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:33","lateMin":0,"halfDay":false},"17":{"clockIn":"08:42","lateMin":0,"halfDay":false},"18":{"clockIn":"08:46","lateMin":0,"halfDay":false},"19":null,"20":{"clockIn":"08:46","lateMin":0,"halfDay":false},"21":{"clockIn":"08:44","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:44","lateMin":0,"halfDay":false},"24":{"clockIn":"08:39","lateMin":0,"halfDay":false},"25":{"clockIn":"08:40","lateMin":0,"halfDay":false},"26":{"clockIn":"08:40","lateMin":0,"halfDay":false},"27":{"clockIn":"08:56","lateMin":0,"halfDay":false},"28":{"clockIn":"08:43","lateMin":0,"halfDay":false}}},{"code":"T024","name":"ณัฐณิชา มุกดา ป็อบ","days":{"1":null,"2":null,"3":{"clockIn":"08:00","lateMin":0,"halfDay":false},"4":{"clockIn":"08:19","lateMin":0,"halfDay":false},"5":{"clockIn":"08:45","lateMin":0,"halfDay":false},"6":{"clockIn":"08:42","lateMin":0,"halfDay":false},"7":{"clockIn":"08:42","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:35","lateMin":0,"halfDay":false},"10":{"clockIn":"08:20","lateMin":0,"halfDay":false},"11":{"clockIn":"08:43","lateMin":0,"halfDay":false},"12":{"clockIn":"08:48","lateMin":0,"halfDay":false},"13":null,"14":{"clockIn":"08:46","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:38","lateMin":0,"halfDay":false},"17":{"clockIn":"08:20","lateMin":0,"halfDay":false},"18":{"clockIn":"08:26","lateMin":0,"halfDay":false},"19":{"clockIn":"08:56","lateMin":0,"halfDay":false},"20":{"clockIn":"08:40","lateMin":0,"halfDay":false},"21":{"clockIn":"08:49","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:47","lateMin":0,"halfDay":false},"24":{"clockIn":"08:49","lateMin":0,"halfDay":false},"25":{"clockIn":"08:38","lateMin":0,"halfDay":false},"26":{"clockIn":"08:40","lateMin":0,"halfDay":false},"27":{"clockIn":"08:38","lateMin":0,"halfDay":false},"28":{"clockIn":"08:35","lateMin":0,"halfDay":false}}},{"code":"T025","name":"วิชญาดา แสงสว่าง ส้ม","days":{"1":null,"2":{"clockIn":"08:56","lateMin":0,"halfDay":false},"3":{"clockIn":"08:47","lateMin":0,"halfDay":false},"4":{"clockIn":"08:41","lateMin":0,"halfDay":false},"5":{"clockIn":"08:44","lateMin":0,"halfDay":false},"6":null,"7":{"clockIn":"08:41","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:39","lateMin":0,"halfDay":false},"10":null,"11":null,"12":{"clockIn":"08:32","lateMin":0,"halfDay":false},"13":{"clockIn":"08:31","lateMin":0,"halfDay":false},"14":null,"15":null,"16":{"clockIn":"08:48","lateMin":0,"halfDay":false},"17":{"clockIn":"08:49","lateMin":0,"halfDay":false},"18":{"clockIn":"08:46","lateMin":0,"halfDay":false},"19":{"clockIn":"08:39","lateMin":0,"halfDay":false},"20":{"clockIn":"08:34","lateMin":0,"halfDay":false},"21":null,"22":null,"23":{"clockIn":"08:49","lateMin":0,"halfDay":false},"24":{"clockIn":"08:44","lateMin":0,"halfDay":false},"25":{"clockIn":"08:49","lateMin":0,"halfDay":false},"26":{"clockIn":"08:47","lateMin":0,"halfDay":false},"27":{"clockIn":"08:36","lateMin":0,"halfDay":false},"28":{"clockIn":"08:39","lateMin":0,"halfDay":false}}},{"code":"T026","name":"นิศาชล เจริญสมบัติ แพร","days":{"1":null,"2":null,"3":null,"4":null,"5":null,"6":null,"7":null,"8":null,"9":null,"10":null,"11":null,"12":null,"13":null,"14":null,"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}},{"code":"T027","name":"ธนพร ใจสุกใส ขวัญ","days":{"1":null,"2":{"clockIn":"08:46","lateMin":0,"halfDay":false},"3":{"clockIn":"08:52","lateMin":0,"halfDay":false},"4":{"clockIn":"08:51","lateMin":0,"halfDay":false},"5":{"clockIn":"08:55","lateMin":0,"halfDay":false},"6":{"clockIn":"08:55","lateMin":0,"halfDay":false},"7":{"clockIn":"08:57","lateMin":0,"halfDay":false},"8":null,"9":null,"10":{"clockIn":"08:51","lateMin":0,"halfDay":false},"11":{"clockIn":"09:01","lateMin":1,"halfDay":false},"12":{"clockIn":"08:58","lateMin":0,"halfDay":false},"13":{"clockIn":"09:00","lateMin":0,"halfDay":false},"14":{"clockIn":"08:56","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:51","lateMin":0,"halfDay":false},"17":{"clockIn":"08:44","lateMin":0,"halfDay":false},"18":{"clockIn":"08:59","lateMin":0,"halfDay":false},"19":{"clockIn":"08:57","lateMin":0,"halfDay":false},"20":{"clockIn":"08:55","lateMin":0,"halfDay":false},"21":{"clockIn":"08:56","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:58","lateMin":0,"halfDay":false},"24":{"clockIn":"08:56","lateMin":0,"halfDay":false},"25":{"clockIn":"08:53","lateMin":0,"halfDay":false},"26":{"clockIn":"08:49","lateMin":0,"halfDay":false},"27":{"clockIn":"09:01","lateMin":1,"halfDay":false},"28":{"clockIn":"08:55","lateMin":0,"halfDay":false}}},{"code":"T028","name":"ธิดาธร อำนวยศักดิ์โสภณ อีฟ","days":{"1":null,"2":{"clockIn":"08:52","lateMin":0,"halfDay":false},"3":{"clockIn":"08:48","lateMin":0,"halfDay":false},"4":{"clockIn":"08:45","lateMin":0,"halfDay":false},"5":{"clockIn":"08:56","lateMin":0,"halfDay":false},"6":{"clockIn":"08:50","lateMin":0,"halfDay":false},"7":{"clockIn":"08:50","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:42","lateMin":0,"halfDay":false},"10":{"clockIn":"08:46","lateMin":0,"halfDay":false},"11":{"clockIn":"08:52","lateMin":0,"halfDay":false},"12":{"clockIn":"08:52","lateMin":0,"halfDay":false},"13":{"clockIn":"08:49","lateMin":0,"halfDay":false},"14":{"clockIn":"08:53","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:51","lateMin":0,"halfDay":false},"17":{"clockIn":"08:51","lateMin":0,"halfDay":false},"18":{"clockIn":"08:55","lateMin":0,"halfDay":false},"19":{"clockIn":"08:55","lateMin":0,"halfDay":false},"20":{"clockIn":"08:57","lateMin":0,"halfDay":false},"21":{"clockIn":"08:47","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:46","lateMin":0,"halfDay":false},"24":{"clockIn":"08:37","lateMin":0,"halfDay":false},"25":{"clockIn":"08:39","lateMin":0,"halfDay":false},"26":{"clockIn":"08:53","lateMin":0,"halfDay":false},"27":{"clockIn":"08:38","lateMin":0,"halfDay":false},"28":{"clockIn":"08:46","lateMin":0,"halfDay":false}}},{"code":"T029","name":"เจนจิรา เทศสิงห์ เจน","days":{"1":null,"2":{"clockIn":"08:39","lateMin":0,"halfDay":false},"3":{"clockIn":"10:58","lateMin":118,"halfDay":true},"4":{"clockIn":"08:41","lateMin":0,"halfDay":false},"5":{"clockIn":"08:59","lateMin":0,"halfDay":false},"6":{"clockIn":"08:53","lateMin":0,"halfDay":false},"7":{"clockIn":"08:48","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:33","lateMin":0,"halfDay":false},"10":{"clockIn":"08:39","lateMin":0,"halfDay":false},"11":{"clockIn":"08:32","lateMin":0,"halfDay":false},"12":{"clockIn":"08:33","lateMin":0,"halfDay":false},"13":{"clockIn":"08:29","lateMin":0,"halfDay":false},"14":{"clockIn":"08:37","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:32","lateMin":0,"halfDay":false},"17":{"clockIn":"08:31","lateMin":0,"halfDay":false},"18":{"clockIn":"09:01","lateMin":1,"halfDay":false},"19":{"clockIn":"08:30","lateMin":0,"halfDay":false},"20":{"clockIn":"08:37","lateMin":0,"halfDay":false},"21":{"clockIn":"08:25","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:26","lateMin":0,"halfDay":false},"24":{"clockIn":"08:29","lateMin":0,"halfDay":false},"25":{"clockIn":"08:26","lateMin":0,"halfDay":false},"26":{"clockIn":"08:31","lateMin":0,"halfDay":false},"27":{"clockIn":"08:29","lateMin":0,"halfDay":false},"28":{"clockIn":"08:13","lateMin":0,"halfDay":false}}},{"code":"T030","name":"ฉันท์สินี ยมมา จอย","days":{"1":null,"2":{"clockIn":"08:48","lateMin":0,"halfDay":false},"3":{"clockIn":"08:45","lateMin":0,"halfDay":false},"4":{"clockIn":"08:47","lateMin":0,"halfDay":false},"5":{"clockIn":"08:42","lateMin":0,"halfDay":false},"6":{"clockIn":"08:47","lateMin":0,"halfDay":false},"7":{"clockIn":"08:44","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:41","lateMin":0,"halfDay":false},"10":{"clockIn":"08:40","lateMin":0,"halfDay":false},"11":{"clockIn":"08:46","lateMin":0,"halfDay":false},"12":{"clockIn":"08:44","lateMin":0,"halfDay":false},"13":{"clockIn":"08:41","lateMin":0,"halfDay":false},"14":{"clockIn":"08:40","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:39","lateMin":0,"halfDay":false},"17":{"clockIn":"08:42","lateMin":0,"halfDay":false},"18":null,"19":{"clockIn":"08:46","lateMin":0,"halfDay":false},"20":{"clockIn":"08:31","lateMin":0,"halfDay":false},"21":{"clockIn":"08:33","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:47","lateMin":0,"halfDay":false},"24":{"clockIn":"08:26","lateMin":0,"halfDay":false},"25":{"clockIn":"08:36","lateMin":0,"halfDay":false},"26":{"clockIn":"08:30","lateMin":0,"halfDay":false},"27":{"clockIn":"08:43","lateMin":0,"halfDay":false},"28":{"clockIn":"08:16","lateMin":0,"halfDay":false}}},{"code":"T031","name":"นุจรินทร์ สีวังราช นิว","days":{"1":null,"2":{"clockIn":"08:31","lateMin":0,"halfDay":false},"3":{"clockIn":"08:42","lateMin":0,"halfDay":false},"4":{"clockIn":"08:43","lateMin":0,"halfDay":false},"5":{"clockIn":"08:45","lateMin":0,"halfDay":false},"6":{"clockIn":"08:42","lateMin":0,"halfDay":false},"7":{"clockIn":"08:40","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:35","lateMin":0,"halfDay":false},"10":{"clockIn":"08:27","lateMin":0,"halfDay":false},"11":{"clockIn":"08:44","lateMin":0,"halfDay":false},"12":{"clockIn":"08:42","lateMin":0,"halfDay":false},"13":{"clockIn":"08:37","lateMin":0,"halfDay":false},"14":null,"15":null,"16":{"clockIn":"08:41","lateMin":0,"halfDay":false},"17":{"clockIn":"08:36","lateMin":0,"halfDay":false},"18":{"clockIn":"08:38","lateMin":0,"halfDay":false},"19":{"clockIn":"08:41","lateMin":0,"halfDay":false},"20":{"clockIn":"08:43","lateMin":0,"halfDay":false},"21":{"clockIn":"08:42","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:42","lateMin":0,"halfDay":false},"24":{"clockIn":"08:25","lateMin":0,"halfDay":false},"25":{"clockIn":"08:41","lateMin":0,"halfDay":false},"26":{"clockIn":"08:41","lateMin":0,"halfDay":false},"27":{"clockIn":"08:36","lateMin":0,"halfDay":false},"28":{"clockIn":"08:37","lateMin":0,"halfDay":false}}},{"code":"T032","name":"กัญญาณัฐ ศรีคำ ออ","days":{"1":null,"2":{"clockIn":"08:34","lateMin":0,"halfDay":false},"3":{"clockIn":"08:38","lateMin":0,"halfDay":false},"4":{"clockIn":"08:44","lateMin":0,"halfDay":false},"5":{"clockIn":"08:43","lateMin":0,"halfDay":false},"6":{"clockIn":"08:41","lateMin":0,"halfDay":false},"7":{"clockIn":"08:39","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:46","lateMin":0,"halfDay":false},"10":{"clockIn":"08:35","lateMin":0,"halfDay":false},"11":{"clockIn":"08:42","lateMin":0,"halfDay":false},"12":{"clockIn":"08:42","lateMin":0,"halfDay":false},"13":{"clockIn":"08:39","lateMin":0,"halfDay":false},"14":null,"15":null,"16":{"clockIn":"08:46","lateMin":0,"halfDay":false},"17":{"clockIn":"08:42","lateMin":0,"halfDay":false},"18":{"clockIn":"08:42","lateMin":0,"halfDay":false},"19":{"clockIn":"08:45","lateMin":0,"halfDay":false},"20":{"clockIn":"08:41","lateMin":0,"halfDay":false},"21":{"clockIn":"08:41","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:29","lateMin":0,"halfDay":false},"24":{"clockIn":"08:39","lateMin":0,"halfDay":false},"25":{"clockIn":"08:44","lateMin":0,"halfDay":false},"26":{"clockIn":"08:36","lateMin":0,"halfDay":false},"27":{"clockIn":"08:43","lateMin":0,"halfDay":false},"28":{"clockIn":"08:28","lateMin":0,"halfDay":false}}},{"code":"T033","name":"ธนะสิทธิ์ สุขกูล ฟร้อง","days":{"1":null,"2":{"clockIn":"08:39","lateMin":0,"halfDay":false},"3":{"clockIn":"08:35","lateMin":0,"halfDay":false},"4":{"clockIn":"08:47","lateMin":0,"halfDay":false},"5":{"clockIn":"08:48","lateMin":0,"halfDay":false},"6":{"clockIn":"08:33","lateMin":0,"halfDay":false},"7":{"clockIn":"08:44","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:26","lateMin":0,"halfDay":false},"10":{"clockIn":"08:30","lateMin":0,"halfDay":false},"11":{"clockIn":"08:44","lateMin":0,"halfDay":false},"12":{"clockIn":"08:50","lateMin":0,"halfDay":false},"13":{"clockIn":"08:40","lateMin":0,"halfDay":false},"14":{"clockIn":"08:44","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:46","lateMin":0,"halfDay":false},"17":{"clockIn":"08:37","lateMin":0,"halfDay":false},"18":{"clockIn":"08:50","lateMin":0,"halfDay":false},"19":{"clockIn":"08:36","lateMin":0,"halfDay":false},"20":{"clockIn":"08:32","lateMin":0,"halfDay":false},"21":{"clockIn":"08:43","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:35","lateMin":0,"halfDay":false},"24":{"clockIn":"08:33","lateMin":0,"halfDay":false},"25":{"clockIn":"08:44","lateMin":0,"halfDay":false},"26":{"clockIn":"08:28","lateMin":0,"halfDay":false},"27":{"clockIn":"08:50","lateMin":0,"halfDay":false},"28":{"clockIn":"08:24","lateMin":0,"halfDay":false}}},{"code":"T034","name":"สุจิณณา ปัจฉิม นุ่น","days":{"1":null,"2":{"clockIn":"08:51","lateMin":0,"halfDay":false},"3":{"clockIn":"08:49","lateMin":0,"halfDay":false},"4":{"clockIn":"08:43","lateMin":0,"halfDay":false},"5":{"clockIn":"08:58","lateMin":0,"halfDay":false},"6":{"clockIn":"08:53","lateMin":0,"halfDay":false},"7":{"clockIn":"08:48","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:39","lateMin":0,"halfDay":false},"10":{"clockIn":"08:41","lateMin":0,"halfDay":false},"11":{"clockIn":"08:42","lateMin":0,"halfDay":false},"12":{"clockIn":"08:42","lateMin":0,"halfDay":false},"13":{"clockIn":"08:38","lateMin":0,"halfDay":false},"14":null,"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}},{"code":"T035","name":"ทิพธัญญา ตัณฑาภิชาติ ใบหม่อน","days":{"1":null,"2":{"clockIn":"08:47","lateMin":0,"halfDay":false},"3":{"clockIn":"08:48","lateMin":0,"halfDay":false},"4":{"clockIn":"08:46","lateMin":0,"halfDay":false},"5":{"clockIn":"08:53","lateMin":0,"halfDay":false},"6":{"clockIn":"08:48","lateMin":0,"halfDay":false},"7":{"clockIn":"08:48","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:46","lateMin":0,"halfDay":false},"10":{"clockIn":"08:44","lateMin":0,"halfDay":false},"11":{"clockIn":"08:47","lateMin":0,"halfDay":false},"12":{"clockIn":"08:46","lateMin":0,"halfDay":false},"13":{"clockIn":"08:47","lateMin":0,"halfDay":false},"14":null,"15":null,"16":{"clockIn":"08:46","lateMin":0,"halfDay":false},"17":{"clockIn":"08:39","lateMin":0,"halfDay":false},"18":{"clockIn":"08:48","lateMin":0,"halfDay":false},"19":{"clockIn":"08:35","lateMin":0,"halfDay":false},"20":{"clockIn":"08:48","lateMin":0,"halfDay":false},"21":{"clockIn":"08:55","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:49","lateMin":0,"halfDay":false},"24":{"clockIn":"08:38","lateMin":0,"halfDay":false},"25":{"clockIn":"08:41","lateMin":0,"halfDay":false},"26":{"clockIn":"08:45","lateMin":0,"halfDay":false},"27":{"clockIn":"08:42","lateMin":0,"halfDay":false},"28":{"clockIn":"08:30","lateMin":0,"halfDay":false}}},{"code":"T036","name":"พรนัชชา ขุนชอนรักษ์ เนม","days":{"1":null,"2":null,"3":{"clockIn":"08:34","lateMin":0,"halfDay":false},"4":{"clockIn":"08:30","lateMin":0,"halfDay":false},"5":{"clockIn":"08:42","lateMin":0,"halfDay":false},"6":{"clockIn":"08:45","lateMin":0,"halfDay":false},"7":{"clockIn":"08:29","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:35","lateMin":0,"halfDay":false},"10":{"clockIn":"08:32","lateMin":0,"halfDay":false},"11":null,"12":{"clockIn":"08:36","lateMin":0,"halfDay":false},"13":{"clockIn":"08:39","lateMin":0,"halfDay":false},"14":null,"15":null,"16":{"clockIn":"08:47","lateMin":0,"halfDay":false},"17":{"clockIn":"08:47","lateMin":0,"halfDay":false},"18":{"clockIn":"08:47","lateMin":0,"halfDay":false},"19":{"clockIn":"08:51","lateMin":0,"halfDay":false},"20":{"clockIn":"08:38","lateMin":0,"halfDay":false},"21":{"clockIn":"08:56","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:43","lateMin":0,"halfDay":false},"24":{"clockIn":"08:45","lateMin":0,"halfDay":false},"25":{"clockIn":"08:53","lateMin":0,"halfDay":false},"26":{"clockIn":"08:53","lateMin":0,"halfDay":false},"27":{"clockIn":"08:52","lateMin":0,"halfDay":false},"28":{"clockIn":"08:54","lateMin":0,"halfDay":false}}},{"code":"T037","name":"มาริสา จอมพงษ์ สา","days":{"1":null,"2":{"clockIn":"08:54","lateMin":0,"halfDay":false},"3":{"clockIn":"08:56","lateMin":0,"halfDay":false},"4":{"clockIn":"08:55","lateMin":0,"halfDay":false},"5":{"clockIn":"08:53","lateMin":0,"halfDay":false},"6":{"clockIn":"08:52","lateMin":0,"halfDay":false},"7":{"clockIn":"08:54","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:54","lateMin":0,"halfDay":false},"10":{"clockIn":"08:56","lateMin":0,"halfDay":false},"11":{"clockIn":"08:01","lateMin":0,"halfDay":false},"12":{"clockIn":"07:52","lateMin":0,"halfDay":false},"13":{"clockIn":"08:03","lateMin":0,"halfDay":false},"14":null,"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}},{"code":"T038","name":"ปริศนา แย้มมูล แป้ง","days":{"1":null,"2":null,"3":null,"4":null,"5":null,"6":null,"7":null,"8":null,"9":null,"10":null,"11":null,"12":null,"13":null,"14":null,"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}},{"code":"T039","name":"ลูกน้ำ สังสีแก้ว น้ำหนึ่ง","days":{"1":null,"2":{"clockIn":"08:23","lateMin":0,"halfDay":false},"3":{"clockIn":"08:33","lateMin":0,"halfDay":false},"4":{"clockIn":"08:45","lateMin":0,"halfDay":false},"5":{"clockIn":"08:57","lateMin":0,"halfDay":false},"6":{"clockIn":"08:32","lateMin":0,"halfDay":false},"7":{"clockIn":"08:24","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:25","lateMin":0,"halfDay":false},"10":{"clockIn":"08:36","lateMin":0,"halfDay":false},"11":{"clockIn":"08:44","lateMin":0,"halfDay":false},"12":{"clockIn":"08:32","lateMin":0,"halfDay":false},"13":{"clockIn":"08:41","lateMin":0,"halfDay":false},"14":{"clockIn":"08:55","lateMin":0,"halfDay":false},"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}},{"code":"T040","name":"น้ำเงิน ศรีคง ลูกน้ำ","days":{"1":null,"2":{"clockIn":"08:52","lateMin":0,"halfDay":false},"3":{"clockIn":"08:49","lateMin":0,"halfDay":false},"4":{"clockIn":"08:50","lateMin":0,"halfDay":false},"5":{"clockIn":"08:52","lateMin":0,"halfDay":false},"6":{"clockIn":"08:41","lateMin":0,"halfDay":false},"7":{"clockIn":"08:50","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:57","lateMin":0,"halfDay":false},"10":{"clockIn":"08:56","lateMin":0,"halfDay":false},"11":{"clockIn":"08:50","lateMin":0,"halfDay":false},"12":{"clockIn":"08:56","lateMin":0,"halfDay":false},"13":{"clockIn":"08:56","lateMin":0,"halfDay":false},"14":{"clockIn":"08:53","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:54","lateMin":0,"halfDay":false},"17":{"clockIn":"08:37","lateMin":0,"halfDay":false},"18":{"clockIn":"08:44","lateMin":0,"halfDay":false},"19":{"clockIn":"08:40","lateMin":0,"halfDay":false},"20":null,"21":{"clockIn":"08:46","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:30","lateMin":0,"halfDay":false},"24":{"clockIn":"08:32","lateMin":0,"halfDay":false},"25":{"clockIn":"08:45","lateMin":0,"halfDay":false},"26":{"clockIn":"08:43","lateMin":0,"halfDay":false},"27":{"clockIn":"08:51","lateMin":0,"halfDay":false},"28":null}},{"code":"T041","name":"ณัฐพล สุมคุ้ม อั้ม","days":{"1":null,"2":{"clockIn":"08:50","lateMin":0,"halfDay":false},"3":{"clockIn":"08:32","lateMin":0,"halfDay":false},"4":{"clockIn":"08:40","lateMin":0,"halfDay":false},"5":{"clockIn":"08:41","lateMin":0,"halfDay":false},"6":{"clockIn":"08:39","lateMin":0,"halfDay":false},"7":{"clockIn":"08:36","lateMin":0,"halfDay":false},"8":null,"9":null,"10":{"clockIn":"08:36","lateMin":0,"halfDay":false},"11":{"clockIn":"08:44","lateMin":0,"halfDay":false},"12":{"clockIn":"08:34","lateMin":0,"halfDay":false},"13":{"clockIn":"08:39","lateMin":0,"halfDay":false},"14":null,"15":null,"16":{"clockIn":"08:41","lateMin":0,"halfDay":false},"17":{"clockIn":"08:34","lateMin":0,"halfDay":false},"18":{"clockIn":"08:37","lateMin":0,"halfDay":false},"19":{"clockIn":"08:36","lateMin":0,"halfDay":false},"20":{"clockIn":"08:39","lateMin":0,"halfDay":false},"21":{"clockIn":"08:42","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:30","lateMin":0,"halfDay":false},"24":{"clockIn":"08:35","lateMin":0,"halfDay":false},"25":{"clockIn":"08:40","lateMin":0,"halfDay":false},"26":{"clockIn":"08:40","lateMin":0,"halfDay":false},"27":{"clockIn":"08:34","lateMin":0,"halfDay":false},"28":null}},{"code":"T042","name":"ขนิฐา ฤทธิ์มั่น ฐา","days":{"1":null,"2":{"clockIn":"08:23","lateMin":0,"halfDay":false},"3":null,"4":null,"5":null,"6":{"clockIn":"09:12","lateMin":12,"halfDay":false},"7":null,"8":null,"9":{"clockIn":"08:20","lateMin":0,"halfDay":false},"10":null,"11":null,"12":null,"13":null,"14":null,"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}},{"code":"T043","name":"กฤษณกร นพวรรณ ออย","days":{"1":null,"2":{"clockIn":"08:47","lateMin":0,"halfDay":false},"3":{"clockIn":"08:51","lateMin":0,"halfDay":false},"4":{"clockIn":"08:48","lateMin":0,"halfDay":false},"5":{"clockIn":"08:57","lateMin":0,"halfDay":false},"6":{"clockIn":"08:51","lateMin":0,"halfDay":false},"7":{"clockIn":"08:57","lateMin":0,"halfDay":false},"8":null,"9":{"clockIn":"08:44","lateMin":0,"halfDay":false},"10":{"clockIn":"08:46","lateMin":0,"halfDay":false},"11":{"clockIn":"08:52","lateMin":0,"halfDay":false},"12":{"clockIn":"08:38","lateMin":0,"halfDay":false},"13":{"clockIn":"08:39","lateMin":0,"halfDay":false},"14":{"clockIn":"08:50","lateMin":0,"halfDay":false},"15":null,"16":{"clockIn":"08:49","lateMin":0,"halfDay":false},"17":{"clockIn":"08:43","lateMin":0,"halfDay":false},"18":{"clockIn":"08:45","lateMin":0,"halfDay":false},"19":{"clockIn":"08:48","lateMin":0,"halfDay":false},"20":{"clockIn":"08:45","lateMin":0,"halfDay":false},"21":{"clockIn":"08:48","lateMin":0,"halfDay":false},"22":null,"23":{"clockIn":"08:52","lateMin":0,"halfDay":false},"24":{"clockIn":"08:48","lateMin":0,"halfDay":false},"25":{"clockIn":"08:48","lateMin":0,"halfDay":false},"26":{"clockIn":"08:42","lateMin":0,"halfDay":false},"27":{"clockIn":"08:50","lateMin":0,"halfDay":false},"28":{"clockIn":"08:46","lateMin":0,"halfDay":false}}},{"code":"T044","name":"จันจิรา จันทรบุปผา จ๊อบแจ๊บ","days":{"1":null,"2":null,"3":null,"4":null,"5":null,"6":null,"7":null,"8":null,"9":null,"10":null,"11":null,"12":null,"13":null,"14":null,"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}},{"code":"T045","name":"พงศ์วิทย์ พรศิริลัคณา ก็อต","days":{"1":null,"2":null,"3":null,"4":null,"5":null,"6":null,"7":null,"8":null,"9":null,"10":null,"11":null,"12":null,"13":null,"14":null,"15":null,"16":null,"17":null,"18":null,"19":null,"20":null,"21":null,"22":null,"23":null,"24":null,"25":null,"26":null,"27":null,"28":null}}];
+
+function parseXlsx(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        
+        const employees = [];
+        for (let i = 3; i < data.length; i++) {
+          const row = data[i];
+          if (!row || !row[0]) continue;
+          const code = String(row[0]);
+          const name = String(row[1] || '');
+          const days = {};
+          
+          for (let col = 3; col <= 30; col++) {
+            const day = col - 2;
+            const cell = row[col];
+            if (!cell || String(cell).trim() === '') { days[String(day)] = null; continue; }
+            
+            const cellStr = String(cell).trim();
+            const times = cellStr.match(/(\d{2}:\d{2})/g) || [];
+            
+            let clockIn = null;
+            for (const t of times) {
+              const h = parseInt(t.split(':')[0]);
+              if (h < 12) { clockIn = t; break; }
+            }
+            
+            if (!clockIn) { days[String(day)] = null; continue; }
+            
+            const [hh, mm] = clockIn.split(':').map(Number);
+            const totalMin = hh * 60 + mm;
+            let lateMin = 0, halfDay = false;
+            
+            if (totalMin > 540) {
+              lateMin = totalMin - 540;
+              if (totalMin > 570) halfDay = true;
+            }
+            
+            days[String(day)] = { clockIn, lateMin, halfDay };
+          }
+          
+          employees.push({ code, name, days });
+        }
+        resolve(employees);
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function calcSummary(emp, empType) {
+  const rate = empType === 'daily' ? 352 : 400;
+  let lateDays = 0, totalLateMin = 0, lateDeduct = 0, halfDayCount = 0;
+  const details = [];
+  for (let d = 1; d <= 28; d++) {
+    const dd = emp.days[String(d)];
+    if (!dd) { details.push({ day: d, clockIn: null, status: 'none', lateMin: 0, deduct: 0 }); continue; }
+    if (dd.lateMin === 0) { details.push({ day: d, clockIn: dd.clockIn, status: 'ok', lateMin: 0, deduct: 0 }); continue; }
+    if (dd.halfDay) {
+      halfDayCount++;
+      details.push({ day: d, clockIn: dd.clockIn, status: 'halfday', lateMin: dd.lateMin, deduct: rate / 2 });
+    } else {
+      lateDays++;
+      totalLateMin += dd.lateMin;
+      lateDeduct += dd.lateMin * RATE;
+      details.push({ day: d, clockIn: dd.clockIn, status: 'late', lateMin: dd.lateMin, deduct: dd.lateMin * RATE });
+    }
+  }
+  return { lateDays, totalLateMin, lateDeduct, halfDayCount, halfDayDeduct: halfDayCount * (rate / 2), totalDeduct: lateDeduct + halfDayCount * (rate / 2), details };
+}
+
+const fmt = (n) => n.toLocaleString('th-TH');
+
+function App() {
+  const [employees, setEmployees] = useState(EMBEDDED_DATA);
+  const [empTypes, setEmpTypes] = useState(() => {
+    const t = {};
+    EMBEDDED_DATA.forEach(e => { t[e.code] = 'permanent'; });
+    return t;
+  });
+  const [selectedEmp, setSelectedEmp] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterLate, setFilterLate] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef(null);
+
+  const handleImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const data = await parseXlsx(file);
+      setEmployees(data);
+      const types = {};
+      data.forEach(emp => { types[emp.code] = 'permanent'; });
+      setEmpTypes(types);
+      setSelectedEmp(null);
+    } catch (err) {
+      alert('ไม่สามารถอ่านไฟล์ได้: ' + err.message);
+    }
+    setImporting(false);
+  };
+
+  const toggleType = (code) => {
+    setEmpTypes(prev => ({ ...prev, [code]: prev[code] === 'daily' ? 'permanent' : 'daily' }));
+  };
+  const setAllType = (type) => {
+    setEmpTypes(prev => {
+      const n = { ...prev };
+      Object.keys(n).forEach(k => { n[k] = type; });
+      return n;
+    });
+  };
+
+  // ===== EXPORT FUNCTIONS =====
+  const exportSummary = () => {
+    const wb = XLSX.utils.book_new();
+    
+    // Sheet 1: Summary
+    const summaryRows = [
+      ['สรุปการมาสาย & ยอดหักเงิน'],
+      ['เกณฑ์: มาสาย 09:01-09:30 หักนาทีละ 50 บาท / หลัง 09:30 หักครึ่งวัน | รายวัน 352 บ. | ประจำ 400 บ.'],
+      [],
+      ['ลำดับ', 'รหัส', 'ชื่อพนักงาน', 'ประเภท', 'ค่าจ้าง/วัน', 'จำนวนวันสาย\n(หักนาที)', 'รวมนาทีสาย', 'ยอดหักมาสาย\n(นาทีx50)', 'จำนวนครั้ง\nหักครึ่งวัน', 'ยอดหักครึ่งวัน', 'รวมหักทั้งหมด']
+    ];
+    
+    let totLateDeduct = 0, totHalfDeduct = 0, totAll = 0, totLateDays = 0, totHalfDays = 0, totLateMin = 0;
+    filtered.forEach((emp, i) => {
+      const rate = emp.type === 'daily' ? 352 : 400;
+      const typeName = emp.type === 'daily' ? 'รายวัน' : 'ประจำ';
+      summaryRows.push([
+        i + 1, emp.code, emp.name, typeName, rate,
+        emp.lateDays, emp.totalLateMin, emp.lateDeduct,
+        emp.halfDayCount, emp.halfDayDeduct, emp.totalDeduct
+      ]);
+      totLateDays += emp.lateDays;
+      totLateMin += emp.totalLateMin;
+      totLateDeduct += emp.lateDeduct;
+      totHalfDays += emp.halfDayCount;
+      totHalfDeduct += emp.halfDayDeduct;
+      totAll += emp.totalDeduct;
+    });
+    
+    summaryRows.push([]);
+    summaryRows.push(['', '', 'รวมทั้งหมด', '', '', totLateDays, totLateMin, totLateDeduct, totHalfDays, totHalfDeduct, totAll]);
+    
+    const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
+    
+    // Column widths
+    ws1['!cols'] = [
+      { wch: 6 }, { wch: 8 }, { wch: 28 }, { wch: 10 }, { wch: 10 },
+      { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 16 }
+    ];
+    ws1['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } }
+    ];
+    
+    XLSX.utils.book_append_sheet(wb, ws1, 'สรุปยอดหัก');
+    
+    // Sheet 2: Daily detail
+    const headerRow = ['รหัส', 'ชื่อพนักงาน', 'ประเภท'];
+    for (let d = 1; d <= 28; d++) headerRow.push(d + ' ก.พ.');
+    const detailRows = [['รายละเอียดเวลาเข้างาน'], [], headerRow];
+    
+    filtered.forEach(emp => {
+      const row = [emp.code, emp.name, emp.type === 'daily' ? 'รายวัน' : 'ประจำ'];
+      for (let d = 1; d <= 28; d++) {
+        const dd = emp.days[String(d)];
+        if (!dd) { row.push('-'); continue; }
+        const lateMin = dd.lateMin;
+        if (lateMin === 0) { row.push(dd.clockIn); }
+        else if (dd.halfDay) { row.push(dd.clockIn + ' (หักครึ่งวัน)'); }
+        else { row.push(dd.clockIn + ' (สาย ' + lateMin + ' นาที)'); }
+      }
+      detailRows.push(row);
+    });
+    
+    const ws2 = XLSX.utils.aoa_to_sheet(detailRows);
+    ws2['!cols'] = [{ wch: 8 }, { wch: 28 }, { wch: 10 }];
+    for (let d = 1; d <= 28; d++) ws2['!cols'].push({ wch: 18 });
+    ws2['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 30 } }];
+    
+    XLSX.utils.book_append_sheet(wb, ws2, 'รายละเอียดรายวัน');
+    
+    // Sheet 3: Deduction detail per person who has deductions
+    const deductRows = [['รายละเอียดการหักเงินรายบุคคล'], []];
+    const lateEmps = filtered.filter(e => e.totalDeduct > 0);
+    
+    lateEmps.forEach(emp => {
+      const rate = emp.type === 'daily' ? 352 : 400;
+      const typeName = emp.type === 'daily' ? 'รายวัน' : 'ประจำ';
+      deductRows.push([emp.code + ' - ' + emp.name + ' (' + typeName + ' ฿' + rate + '/วัน)']);
+      deductRows.push(['วันที่', 'เวลาเข้า', 'สถานะ', 'นาทีสาย', 'ยอดหัก (บาท)']);
+      
+      emp.details.filter(d => d.deduct > 0).forEach(d => {
+        const statusText = d.status === 'halfday' ? 'หักครึ่งวัน' : 'สาย ' + d.lateMin + ' นาที';
+        deductRows.push([d.day + ' ก.พ. 69', d.clockIn, statusText, d.lateMin, d.deduct]);
+      });
+      
+      deductRows.push(['', '', '', 'รวม', emp.totalDeduct]);
+      deductRows.push([]);
+    });
+    
+    const ws3 = XLSX.utils.aoa_to_sheet(deductRows);
+    ws3['!cols'] = [{ wch: 14 }, { wch: 12 }, { wch: 18 }, { wch: 12 }, { wch: 14 }];
+    ws3['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+    
+    XLSX.utils.book_append_sheet(wb, ws3, 'รายละเอียดหักรายบุคคล');
+    
+    XLSX.writeFile(wb, 'สรุปมาสาย_หักเงิน.xlsx');
+  };
+
+  const exportPersonDetail = (empCode) => {
+    const emp = summaries.find(e => e.code === empCode);
+    if (!emp) return;
+    const rate = emp.type === 'daily' ? 352 : 400;
+    const typeName = emp.type === 'daily' ? 'รายวัน' : 'ประจำ';
+    
+    const rows = [
+      ['รายละเอียดมาสาย — ' + emp.name],
+      ['รหัส: ' + emp.code + ' | ประเภท: ' + typeName + ' | ค่าจ้าง: ฿' + rate + '/วัน'],
+      [],
+      ['วันที่', 'เวลาเข้า', 'สถานะ', 'นาทีสาย', 'ยอดหัก (บาท)']
+    ];
+    
+    emp.details.forEach(d => {
+      let status = '-';
+      if (d.status === 'ok') status = 'ปกติ';
+      else if (d.status === 'late') status = 'สาย ' + d.lateMin + ' นาที';
+      else if (d.status === 'halfday') status = 'หักครึ่งวัน';
+      else status = 'ไม่มีข้อมูล';
+      rows.push([d.day + ' ก.พ. 69', d.clockIn || '-', status, d.lateMin || '-', d.deduct || '-']);
+    });
+    
+    rows.push([]);
+    rows.push(['', '', 'หักมาสาย (นาที)', emp.totalLateMin + ' นาที', emp.lateDeduct]);
+    rows.push(['', '', 'หักครึ่งวัน', emp.halfDayCount + ' ครั้ง', emp.halfDayDeduct]);
+    rows.push(['', '', '', 'รวมหักทั้งหมด', emp.totalDeduct]);
+    
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{ wch: 14 }, { wch: 12 }, { wch: 20 }, { wch: 14 }, { wch: 14 }];
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } }
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, emp.name);
+    XLSX.writeFile(wb, 'มาสาย_' + emp.code + '_' + emp.name + '.xlsx');
+  };
+
+  const summaries = useMemo(() => {
+    return employees.map(emp => {
+      const s = calcSummary(emp, empTypes[emp.code] || 'permanent');
+      return { ...emp, ...s, type: empTypes[emp.code] || 'permanent' };
+    });
+  }, [employees, empTypes]);
+
+  const filtered = useMemo(() => {
+    return summaries.filter(e => {
+      if (search && !e.name.includes(search) && !e.code.toUpperCase().includes(search.toUpperCase())) return false;
+      if (filterType !== 'all' && e.type !== filterType) return false;
+      if (filterLate && e.totalDeduct === 0) return false;
+      return true;
+    });
+  }, [summaries, search, filterType, filterLate]);
+
+  const totals = useMemo(() => {
+    const t = { lateDeduct: 0, halfDayDeduct: 0, totalDeduct: 0, lateCount: 0, halfDayCount: 0 };
+    filtered.forEach(e => {
+      t.lateDeduct += e.lateDeduct;
+      t.halfDayDeduct += e.halfDayDeduct;
+      t.totalDeduct += e.totalDeduct;
+      t.lateCount += e.lateDays;
+      t.halfDayCount += e.halfDayCount;
+    });
+    return t;
+  }, [filtered]);
+
+  // Detail view
+  if (selectedEmp) {
+    const emp = summaries.find(e => e.code === selectedEmp);
+    if (!emp) return null;
+    const rate = emp.type === 'daily' ? 352 : 400;
+    return (
+      <div className="container">
+        <button className="back-btn" onClick={() => setSelectedEmp(null)}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          กลับหน้าสรุป
+        </button>
+        <div className="detail-header">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <h2 style={{ fontSize: '24px', fontWeight: 700 }}>{emp.name}</h2>
+              <p style={{ opacity: 0.8, fontSize: '13px', marginTop: '4px' }}>รหัส: {emp.code}</p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span className={emp.type === 'daily' ? 'badge badge-daily' : 'badge badge-permanent'}>
+                {emp.type === 'daily' ? 'รายวัน ฿352' : 'ประจำ ฿400'}
+              </span>
+              <button className="btn" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', fontSize: '12px' }} onClick={() => toggleType(emp.code)}>
+                เปลี่ยนประเภท
+              </button>
+              <button className="btn" style={{ background: 'rgba(16,185,129,0.8)', color: 'white', fontSize: '12px' }} onClick={() => exportPersonDetail(emp.code)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export
+              </button>
+            </div>
+          </div>
+          <div className="detail-stats">
+            <div className="detail-stat"><div className="val">{emp.lateDays}</div><div className="lbl">วันสาย (หักนาที)</div></div>
+            <div className="detail-stat"><div className="val">฿{fmt(emp.lateDeduct)}</div><div className="lbl">หักมาสาย</div></div>
+            <div className="detail-stat"><div className="val">{emp.halfDayCount}</div><div className="lbl">ครั้งหักครึ่งวัน</div></div>
+            <div className="detail-stat"><div className="val" style={{ color: '#fde047' }}>฿{fmt(emp.totalDeduct)}</div><div className="lbl">รวมหักทั้งหมด</div></div>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>วันที่</th>
+                  <th style={{ textAlign: 'center' }}>เวลาเข้า</th>
+                  <th style={{ textAlign: 'center' }}>สถานะ</th>
+                  <th style={{ textAlign: 'center' }}>สายกี่นาที</th>
+                  <th style={{ textAlign: 'right' }}>ยอดหัก</th>
+                </tr>
+              </thead>
+              <tbody>
+                {emp.details.map(d => (
+                  <tr key={d.day} className={d.status === 'halfday' ? 'detail-row-halfday' : d.status === 'late' ? 'detail-row-late' : ''}>
+                    <td style={{ fontWeight: 500 }}>{d.day} ก.พ. 69</td>
+                    <td className="text-center font-mono">{d.clockIn || '-'}</td>
+                    <td className="text-center">
+                      {d.status === 'ok' && <span className="badge badge-ok">ปกติ</span>}
+                      {d.status === 'late' && <span className="badge badge-late">สาย {d.lateMin} นาที</span>}
+                      {d.status === 'halfday' && <span className="badge badge-halfday">หักครึ่งวัน</span>}
+                      {d.status === 'none' && <span className="badge badge-none">ไม่มีข้อมูล</span>}
+                    </td>
+                    <td className="text-center">{d.lateMin > 0 ? d.lateMin : '-'}</td>
+                    <td className="text-right font-bold">{d.deduct > 0 ? <span className="text-red">฿{fmt(d.deduct)}</span> : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main view
+  return (
+    <div className="container">
+      <input type="file" accept=".xlsx,.xls" ref={fileRef} onChange={handleImport} className="hidden-input" />
+      
+      <div className="header">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h1>⏰ ระบบแจกแจงมาสาย — หักเงิน</h1>
+            <p>กุมภาพันธ์ 2569 | บริษัท เดอะ เอ็มที จำกัด</p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button className="btn btn-import" onClick={() => fileRef.current.click()} disabled={importing}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              {importing ? 'กำลังอ่าน...' : 'Import Excel'}
+            </button>
+            <button className="btn btn-export" onClick={exportSummary}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export Excel
+            </button>
+          </div>
+        </div>
+        <div className="rules-box">
+          <div className="rule-chip"><span className="icon">🕘</span> เข้างาน 09:00 น.</div>
+          <div className="rule-chip"><span className="icon">💸</span> สาย 09:01-09:30 หักนาทีละ ฿50</div>
+          <div className="rule-chip"><span className="icon">⚠️</span> หลัง 09:30 หักครึ่งวัน</div>
+          <div className="rule-chip"><span className="icon">📋</span> รายวัน ฿352 | ประจำ ฿400</div>
+        </div>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="label">พนักงานทั้งหมด</div>
+          <div className="value" style={{ color: '#1e3a5f' }}>{filtered.length}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label" style={{ color: '#d97706' }}>ครั้งมาสาย (หักนาที)</div>
+          <div className="value" style={{ color: '#d97706' }}>{totals.lateCount}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label" style={{ color: '#dc2626' }}>ครั้งหักครึ่งวัน</div>
+          <div className="value" style={{ color: '#dc2626' }}>{totals.halfDayCount}</div>
+        </div>
+        <div className="stat-card danger">
+          <div className="label">รวมยอดหักทั้งหมด</div>
+          <div className="value">฿{fmt(totals.totalDeduct)}</div>
+        </div>
+      </div>
+
+      <div className="controls">
+        <input type="text" placeholder="🔍 ค้นหาชื่อ / รหัส..." value={search} onChange={e => setSearch(e.target.value)} className="search-input" />
+        <select value={filterType} onChange={e => setFilterType(e.target.value)} className="select-box">
+          <option value="all">ทุกประเภท</option>
+          <option value="permanent">ประจำ (400)</option>
+          <option value="daily">รายวัน (352)</option>
+        </select>
+        <label className="checkbox-label">
+          <input type="checkbox" checked={filterLate} onChange={e => setFilterLate(e.target.checked)} />
+          เฉพาะคนที่โดนหัก
+        </label>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+          <button className="btn btn-violet" onClick={() => setAllType('permanent')}>ตั้งทั้งหมด: ประจำ</button>
+          <button className="btn btn-blue" onClick={() => setAllType('daily')}>ตั้งทั้งหมด: รายวัน</button>
+        </div>
+      </div>
+
+      <div className="table-wrap">
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>รหัส</th>
+                <th>ชื่อพนักงาน</th>
+                <th style={{ textAlign: 'center' }}>ประเภท</th>
+                <th style={{ textAlign: 'center' }}>วันสาย</th>
+                <th style={{ textAlign: 'center' }}>รวมนาที</th>
+                <th style={{ textAlign: 'right' }}>หักมาสาย</th>
+                <th style={{ textAlign: 'center' }}>หักครึ่งวัน</th>
+                <th style={{ textAlign: 'right' }}>หักครึ่งวัน (฿)</th>
+                <th style={{ textAlign: 'right' }}>รวมหัก</th>
+                <th style={{ textAlign: 'center', width: '70px' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(emp => (
+                <tr key={emp.code} className={emp.totalDeduct > 0 ? 'has-deduction' : ''}>
+                  <td className="font-mono" style={{ color: '#6b7280', fontSize: '12px' }}>{emp.code}</td>
+                  <td style={{ fontWeight: 500 }}>{emp.name}</td>
+                  <td className="text-center">
+                    <span className={emp.type === 'daily' ? 'badge badge-daily' : 'badge badge-permanent'} onClick={() => toggleType(emp.code)}>
+                      {emp.type === 'daily' ? 'รายวัน' : 'ประจำ'}
+                    </span>
+                  </td>
+                  <td className="text-center">{emp.lateDays > 0 ? <span className="text-amber font-bold">{emp.lateDays}</span> : <span className="text-gray">-</span>}</td>
+                  <td className="text-center">{emp.totalLateMin > 0 ? <span className="text-amber">{emp.totalLateMin}</span> : <span className="text-gray">-</span>}</td>
+                  <td className="text-right">{emp.lateDeduct > 0 ? <span className="text-red font-bold">฿{fmt(emp.lateDeduct)}</span> : <span className="text-gray">-</span>}</td>
+                  <td className="text-center">{emp.halfDayCount > 0 ? <span className="text-red font-bold">{emp.halfDayCount}</span> : <span className="text-gray">-</span>}</td>
+                  <td className="text-right">{emp.halfDayDeduct > 0 ? <span className="text-red font-bold">฿{fmt(emp.halfDayDeduct)}</span> : <span className="text-gray">-</span>}</td>
+                  <td className="text-right">{emp.totalDeduct > 0 ? <span className="text-red font-bold" style={{ fontSize: '15px' }}>฿{fmt(emp.totalDeduct)}</span> : <span className="text-emerald" style={{ fontWeight: 500 }}>ไม่มี</span>}</td>
+                  <td className="text-center" style={{ whiteSpace: 'nowrap' }}>
+                    <button className="view-btn" onClick={() => setSelectedEmp(emp.code)} title="ดูรายละเอียด">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <button className="view-btn" onClick={() => exportPersonDetail(emp.code)} title="Export รายบุคคล" style={{ color: '#10b981' }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan="3" className="text-right">รวมทั้งหมด</td>
+                <td className="text-center text-amber">{totals.lateCount}</td>
+                <td className="text-center">-</td>
+                <td className="text-right text-red">฿{fmt(totals.lateDeduct)}</td>
+                <td className="text-center text-red">{totals.halfDayCount}</td>
+                <td className="text-right text-red">฿{fmt(totals.halfDayDeduct)}</td>
+                <td className="text-right text-red" style={{ fontSize: '17px' }}>฿{fmt(totals.totalDeduct)}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div className="footer">
+        คลิก Badge "ประจำ/รายวัน" เพื่อสลับประเภท | 👁 ดูรายละเอียด | ⬇ Export รายบุคคล | กดปุ่ม "Export Excel" เพื่อส่งออกทั้งหมด
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>
